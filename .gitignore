@@ -2,3 +2,4 @@ db/data
 run.sh
 client/node_modules
 client/build
+.gitignore
