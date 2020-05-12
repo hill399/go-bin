@@ -78,6 +78,11 @@ func GetRecord(id string) (string, error) {
 	err := Database.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(id))
 
+		if err == badger.ErrKeyNotFound {
+			response = []byte("Invalid Hash")
+			return err
+		}
+
 		err = item.Value(func(val []byte) error {
 			response = val
 			return err

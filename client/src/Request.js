@@ -1,44 +1,38 @@
-import React, { useState } from 'react';
+import React from 'react';
 import './App.css';
+import { TextField } from '@material-ui/core';
 
 
-const Request = () => {
+const Request = (props) => {
 
-  const API_URL = "http://localhost:8080"
+  const { dataState, setDataState, radioState } = props
 
-  const [requestKey, setRequestKey] = useState(null);
+  const isDisabled = () => {
+    if (radioState === 'request') {
+      return false
+    } else {
+      return true
+    }
+  }
 
   const updateField = e => {
-    setRequestKey(e.target.value);
-  }
-
-  const requestData = () => {
-    return fetch(API_URL + "/request/" + requestKey, {
-      method: "GET",
-      mode: "cors",
-      headers: {
-        "Content-Type": "application/json"
-      },
-    })
-      .then(response => response.json())
-      .then(data => { console.log(data) })
-      .catch(err => {
-        handleError(err)
-      });
-  }
-
-  const handleError = (error) => {
-    console.log(error.message);
+    setDataState({
+      ...dataState,
+      [e.target.name]: e.target.value
+    });
   }
 
   return (
-    <div className="App">
-      <form>
-        <label>
-          Key: <input type="text" name="requestKey" onKeyDown={updateField} />
-        </label>
-        <input type="submit" value="Get" onClick={() => requestData()} />
-      </form>
+    <div>
+      <TextField 
+      style={{ width: '80%' }} 
+      margin="normal" 
+      name="hash" 
+      label="Hash" 
+      variant="outlined" 
+      value={dataState.hash} 
+      disabled={isDisabled()} 
+      onChange={updateField} />
     </div>
   );
 }

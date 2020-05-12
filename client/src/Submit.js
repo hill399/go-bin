@@ -1,46 +1,39 @@
-import React, { useState } from 'react';
+import React from 'react';
 import './App.css';
+import { TextField } from '@material-ui/core';
 
+const Submit = (props) => {
 
-const Submit = () => {
+  const { dataState, setDataState, radioState } = props
 
-  const API_URL = "http://localhost:8080"
-
-  const [inputData, setInputData] = useState(null);
-
-  const updateField = e => {
-    setInputData(e.target.value);
+  const isDisabled = () => {
+    if (radioState === 'submit') {
+      return false
+    } else {
+      return true
+    }
   }
 
-  const submitData = () => {
-    return fetch(API_URL + "/submit", {
-      method: "POST",
-      mode: "cors",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ Data: inputData })
-    })
-    .then(response => response.json())
-    .then(data => { console.log(data) })
-    .catch(err => {
-      handleError(err)
+  const updateField = e => {
+    setDataState({
+      ...dataState,
+      [e.target.name]: e.target.value
     });
   }
 
-  const handleError = (error) => {
-    console.log(error.message);
-  }
-
   return (
-    <div className="App">
-      <form>
-        <label>
-          Data: <input type="text" name="inputData" onKeyDown={updateField} />
-        </label>
-        <input type="submit" value="Go" onClick={() => submitData()} />
-      </form>
-    </div>
+      <div>
+          <TextField name="data"
+            style={{ width: '80%' }} 
+            margin="normal"
+            multiline={true}
+            rows={6}
+            label="Data" 
+            variant="outlined" 
+            value={dataState.data} 
+            disabled={isDisabled()} 
+            onChange={updateField} />
+      </div>
   );
 }
 
