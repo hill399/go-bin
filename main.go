@@ -2,14 +2,16 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"runtime"
 	"syscall"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 
 	"github.com/hill399/go-bin/api/v1"
 	"github.com/hill399/go-bin/db"
@@ -22,23 +24,34 @@ var (
 
 func init() {
 	flag.Parse()
+	godotenv.Load(".env")
+}
+
+func dailyScrubber() {
+	heartbeat := time.Tick(24 * time.Hour)
+	for {
+		select {
+		case <-heartbeat:
+			log.Println("Daily Scrubber Triggered...")
+			db.DeleteDailyRecords(time.Now())
+		}
+	}
 }
 
 func main() {
-	db.Database = db.InitDatabase()
-	defer db.Database.Close()
+	r := mux.NewRouter()
+	r.HandleFunc("/submit", api.SubmitData).Methods("POST")
+	r.HandleFunc("/request/{id}", api.RequestData).Methods("GET")
 
-	router := mux.NewRouter()
-	router.HandleFunc("/submit", api.SubmitData).Methods("POST")
-	router.HandleFunc("/request/{id}", api.RequestData).Methods("GET")
-
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./client/build")))
+	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./client/build")))
 
 	errs := make(chan error, 1)
 
+	go dailyScrubber()
+
 	go func() {
-		fmt.Println("Go-Bin Server Starting on Port", *port)
-		errs <- http.ListenAndServe((":" + *port), router)
+		log.Println("Go-Bin Server Starting on Port", *port)
+		errs <- http.ListenAndServe((":" + *port), r)
 	}()
 
 	stop := make(chan os.Signal, 1)
@@ -46,10 +59,9 @@ func main() {
 
 	select {
 	case <-stop:
-		fmt.Println("Shutting Down Safely...")
+		log.Println("Shutting Down Safely...")
 	case err := <-errs:
-		fmt.Println("Failed to start server:", err.Error())
+		log.Println("Failed to start server:", err.Error())
 		runtime.Goexit()
 	}
-
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import './App.css';
-import Submit from './Submit'
-import Request from './Request'
+import './Layout/App.css';
+import Submit from './Components/Submit'
+import Request from './Components/Request'
 
 import { FormControl, FormControlLabel, FormLabel, RadioGroup, Radio, Button } from '@material-ui/core';
 
@@ -14,14 +14,16 @@ const App = () => {
 
   const [dataState, setDataState] = useState({
     data: '',
-    hash: '',
+    id: '',
+    expiry: '',
   })
 
   const handleRadio = (e) => {
     setRadioState(e.target.value);
     setDataState({
       data: '',
-      hash: '',
+      id: '',
+      expiry: '',
     })
   }
 
@@ -40,14 +42,14 @@ const App = () => {
           .then(data => {
             setDataState({
               ...dataState,
-              hash: data.Hash
+              id: data.Id
             });
           })
           .catch(err => {
             handleError(err)
           });
       case 'request':
-        return fetch(api_url + "/request/" + dataState.hash, {
+        return fetch(api_url + "/request/" + dataState.id, {
           method: "GET",
           mode: "cors",
           headers: {
@@ -58,7 +60,8 @@ const App = () => {
           .then(data => {
             setDataState({
               ...dataState,
-              data: data.Data
+              data: data.Data,
+              expiry: data.Expiry,
             });
           })
           .catch(err => {
@@ -73,9 +76,17 @@ const App = () => {
     console.log(error.message);
   }
 
+  const displayExpiry = () => {
+    if (dataState.expiry !== '') {
+      return(
+        <FormLabel component="legend" style={{marginBottom: '10px' }} > Expires on: {dataState.expiry} </FormLabel>
+      )
+    }
+  }
+
   return (
     <div className="App">
-      <h1> Go-Bin Landing Page </h1>
+      <h1> Go-Bin </h1>
       <FormControl component="fieldset">
         <FormLabel component="legend"> Select Function </FormLabel>
         <RadioGroup row aria-label="function" name="radioState" id="radioState" value={radioState} onChange={handleRadio}>
@@ -86,6 +97,7 @@ const App = () => {
       <form>
         <Request dataState={dataState} setDataState={setDataState} radioState={radioState} />
         <Submit dataState={dataState} setDataState={setDataState} radioState={radioState} />
+        {displayExpiry()}
         <Button variant="contained" margin="normal" onClick={() => directButtonFunc()}> Go </Button>
       </form>
     </div>

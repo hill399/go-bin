@@ -1,95 +1,138 @@
 package db
 
+/*
+
+MySQL Database - testdb
+
+CREATE TABLE IF NOT EXISTS paste_data (
+paste_id INT AUTO_INCREMENT PRIMARY KEY,
+data VARCHAR(3000),
+expiry_date DATE NOT NULL,
+ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=INNODB;
+
+*/
+
 import (
+	"database/sql"
 	"fmt"
-	"strings"
+	"log"
+	"os"
+	"strconv"
 	"time"
 
-	"github.com/dgraph-io/badger"
-	"github.com/google/uuid"
+	_ "github.com/go-sql-driver/mysql"
 )
 
-const (
-	dbPath = "./db/data"
-)
-
-var Database *badger.DB
-
-func InitDatabase() *badger.DB {
-	opts := badger.DefaultOptions(dbPath)
-
-	database, err := badger.Open(opts)
-	if err != nil {
-		fmt.Println("db cannot be opened", err)
-	}
-
-	bytesNow := time.Now().String()
-
-	err = database.Update(func(txn *badger.Txn) error {
-		if _, err := txn.Get([]byte("last_mod")); err == badger.ErrKeyNotFound {
-			fmt.Println("No existing database found, creating...")
-
-			err = txn.Set([]byte("last_mod"), []byte(bytesNow))
-
-			return err
-		}
-
-		fmt.Println("Existing database found...")
-
-		return nil
-	})
-
-	if err != nil {
-		fmt.Println("Error in opening database:", err)
-	}
-
-	return database
+type PasteData struct {
+	Id     int
+	Data   string
+	Expiry string
+	Ts     string
 }
 
-func SetRecord(data string) (string, error) {
+var DB *sql.DB
 
-	id := uuid.New().String()
-	id = strings.ReplaceAll(id, "-", "")
+func Open() *sql.DB {
+	dbType := os.Getenv("DBTYPE")
+	user := os.Getenv("DBUSER")
+	pw := os.Getenv("DBPASS")
+	table := os.Getenv("DBTABLE")
+	address := os.Getenv("DBADDRESS")
 
-	bytesNow := time.Now().String()
+	db, err := sql.Open(dbType, user+":"+pw+"@tcp("+address+")/"+table)
 
-	err := Database.Update(func(txn *badger.Txn) error {
-		if _, err := txn.Get([]byte(id)); err == badger.ErrKeyNotFound {
+	if err != nil {
+		fmt.Println(err)
+	}
 
-			err = txn.Set([]byte(id), []byte(data))
+	err = db.Ping()
+	if err != nil {
+		fmt.Println(err)
+	}
 
-			err = txn.Set([]byte("last_mod"), []byte(bytesNow))
+	fmt.Println("db open...")
 
-			return err
-		} else {
-			SetRecord(data)
-		}
-
-		return nil
-	})
-
-	return id, err
+	return db
 }
 
-func GetRecord(id string) (string, error) {
+func SetRecord(data string) string {
 
-	var response []byte
+	DB = Open()
 
-	err := Database.View(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte(id))
+	defer DB.Close()
 
-		if err == badger.ErrKeyNotFound {
-			response = []byte("Invalid Hash")
-			return err
+	date := time.Now().AddDate(0, 1, 0).UTC().Format("2006-01-02")
+
+	res, err := DB.Exec("INSERT INTO paste_data(data, expiry_date) VALUES(?,?)", data, date)
+
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	newId, err := res.LastInsertId()
+
+	id := strconv.Itoa(int(newId))
+
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	log.Println("INSERT: ID: " + id + " |  Data: " + data + " | Expiry: " + date)
+
+	return id
+}
+
+func GetRecord(Id string) PasteData {
+
+	DB = Open()
+
+	defer DB.Close()
+
+	nId, _ := strconv.Atoi(Id)
+
+	selDB, err := DB.Query("SELECT * FROM paste_data WHERE paste_id=?", nId)
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	pd := PasteData{}
+
+	for selDB.Next() {
+		var id int
+		var data, exp, ts string
+
+		err = selDB.Scan(&id, &data, &exp, &ts)
+		if err != nil {
+			log.Panicln(err)
 		}
 
-		err = item.Value(func(val []byte) error {
-			response = val
-			return err
-		})
+		pd.Id = id
+		pd.Data = data
+		pd.Expiry = exp
+		pd.Ts = ts
+	}
 
-		return err
-	})
+	if pd.Ts == "" {
+		pd = PasteData{Id: nId, Data: "Invalid Paste", Expiry: "Invalid Paste", Ts: "Invalid Paste"}
+	}
 
-	return string(response), err
+	return pd
+}
+
+func DeleteDailyRecords(date time.Time) {
+
+	DB = Open()
+
+	defer DB.Close()
+
+	t := date.UTC().Format("2006-01-02")
+
+	delForm, err := DB.Prepare("DELETE FROM paste_data WHERE expiry_date=?")
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	delForm.Exec(t)
+	log.Println("DELETE: " + t)
 }

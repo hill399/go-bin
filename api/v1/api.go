@@ -7,15 +7,17 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+
 	"github.com/hill399/go-bin/db"
 )
 
 type DataPayload struct {
-	Data string `json:"Data"`
+	Data   string `json:"Data"`
+	Expiry string `json:"Expiry"`
 }
 
-type HashPayload struct {
-	Hash string `json:"Hash"`
+type IdPayload struct {
+	Id string `json:"Id"`
 }
 
 func SubmitData(w http.ResponseWriter, r *http.Request) {
@@ -28,15 +30,11 @@ func SubmitData(w http.ResponseWriter, r *http.Request) {
 
 	json.Unmarshal(body, &newRequest)
 
-	id, err := db.SetRecord(newRequest.Data)
-
-	if err != nil {
-		fmt.Println(err)
-	}
+	id := db.SetRecord(newRequest.Data)
 
 	w.WriteHeader(http.StatusCreated)
 
-	newResponse := HashPayload{id}
+	newResponse := IdPayload{id}
 
 	json.NewEncoder(w).Encode(newResponse)
 
@@ -46,19 +44,11 @@ func SubmitData(w http.ResponseWriter, r *http.Request) {
 func RequestData(w http.ResponseWriter, r *http.Request) {
 	dataId := mux.Vars(r)["id"]
 
-	data, err := db.GetRecord(dataId)
+	data := db.GetRecord(dataId)
 
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	newResponse := DataPayload{data}
+	newResponse := DataPayload{Data: data.Data, Expiry: data.Expiry}
 
 	json.NewEncoder(w).Encode(newResponse)
 
 	fmt.Println("Request:", dataId)
-}
-
-func HelloServer(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode("Hello Server!")
 }
