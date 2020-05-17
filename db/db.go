@@ -51,33 +51,27 @@ func Open() *sql.DB {
 		fmt.Println(err)
 	}
 
-	fmt.Println("db open...")
-
 	return db
 }
 
 func SetRecord(data string) string {
 
 	DB = Open()
-
 	defer DB.Close()
 
-	date := time.Now().AddDate(0, 1, 0).UTC().Format("2006-01-02")
-
-	res, err := DB.Exec("INSERT INTO paste_data(data, expiry_date) VALUES(?,?)", data, date)
-
+	res, err := DB.Exec("INSERT INTO paste_data(data, expiry_date) VALUES(?, NOW() + INTERVAL 30 DAY)", data)
 	if err != nil {
 		log.Panicln(err)
 	}
 
 	newId, err := res.LastInsertId()
-
-	id := strconv.Itoa(int(newId))
-
 	if err != nil {
 		log.Panicln(err)
 	}
 
+	id := strconv.Itoa(int(newId))
+
+	date := time.Now().AddDate(0, 1, 0).UTC().Format("2006-01-02")
 	log.Println("INSERT: ID: " + id + " |  Data: " + data + " | Expiry: " + date)
 
 	return id
@@ -86,11 +80,9 @@ func SetRecord(data string) string {
 func GetRecord(Id string) PasteData {
 
 	DB = Open()
-
 	defer DB.Close()
 
 	nId, _ := strconv.Atoi(Id)
-
 	selDB, err := DB.Query("SELECT * FROM paste_data WHERE paste_id=?", nId)
 	if err != nil {
 		log.Panicln(err)
@@ -114,25 +106,28 @@ func GetRecord(Id string) PasteData {
 	}
 
 	if pd.Ts == "" {
-		pd = PasteData{Id: nId, Data: "Invalid Paste", Expiry: "Invalid Paste", Ts: "Invalid Paste"}
+		pd = PasteData{Id: nId, Data: "Invalid Paste", Expiry: "-", Ts: "-"}
 	}
 
 	return pd
 }
 
-func DeleteDailyRecords(date time.Time) {
+func DeleteExpiredRecords() {
 
 	DB = Open()
-
 	defer DB.Close()
 
-	t := date.UTC().Format("2006-01-02")
-
-	delForm, err := DB.Prepare("DELETE FROM paste_data WHERE expiry_date=?")
+	res, err := DB.Exec("DELETE FROM paste_data WHERE expiry_date < NOW()")
 	if err != nil {
 		log.Panicln(err)
 	}
 
-	delForm.Exec(t)
-	log.Println("DELETE: " + t)
+	nDel, err := res.RowsAffected()
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	date := time.Now().AddDate(0, 1, 0).UTC().Format("2006-01-02")
+
+	log.Println("DELETE: " + strconv.Itoa(int(nDel)) + " records older than " + date)
 }

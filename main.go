@@ -28,12 +28,15 @@ func init() {
 }
 
 func dailyScrubber() {
+	log.Println("Initialising Scrubber")
+	db.DeleteExpiredRecords()
+
 	heartbeat := time.Tick(24 * time.Hour)
 	for {
 		select {
 		case <-heartbeat:
-			log.Println("Daily Scrubber Triggered...")
-			db.DeleteDailyRecords(time.Now())
+			log.Println("Daily Scrubber Triggered")
+			db.DeleteExpiredRecords()
 		}
 	}
 }
