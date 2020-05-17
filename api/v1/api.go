@@ -48,6 +48,8 @@ func RequestData(w http.ResponseWriter, r *http.Request) {
 
 	newResponse := DataPayload{Data: data.Data, Expiry: data.Expiry}
 
+	w.WriteHeader(http.StatusOK)
+
 	json.NewEncoder(w).Encode(newResponse)
 
 	fmt.Println("Request:", dataId)

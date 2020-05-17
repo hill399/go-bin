@@ -52,9 +52,18 @@ func main() {
 
 	go dailyScrubber()
 
+	srv := &http.Server{
+		Addr:              (":" + *port),
+		Handler:           r,
+		ReadTimeout:       5 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       30 * time.Second,
+		ReadHeaderTimeout: 2 * time.Second,
+	}
+
 	go func() {
 		log.Println("Go-Bin Server Starting on Port", *port)
-		errs <- http.ListenAndServe((":" + *port), r)
+		errs <- srv.ListenAndServe()
 	}()
 
 	stop := make(chan os.Signal, 1)
